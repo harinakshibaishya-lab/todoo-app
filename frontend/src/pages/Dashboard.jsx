@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut, Plus, ListTodo, CheckCircle2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { getTodos } from '../services/todoService';
+import { getTodos, updateTodo } from '../services/todoService';
 import AddTodoModal from '../components/AddTodoModal';
 import TodoCard from '../components/TodoCard';
+import ReminderPopup from '../components/ReminderPopup';
+import { useTaskReminders } from '../hooks/useTaskReminders';
 
 function Dashboard() {
   const [todos, setTodos] = useState([]);
@@ -15,6 +17,8 @@ function Dashboard() {
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem('user'));
+
+  const { activeReminder, dismissCurrent, snoozeCurrent, clearCurrent } = useTaskReminders(todos);
 
   const fetchTodos = async () => {
     setLoading(true);
@@ -59,13 +63,31 @@ function Dashboard() {
     setIsModalOpen(true);
   };
 
+  const handleReminderDone = async () => {
+    const todo = todos.find((t) => String(t.id) === String(activeReminder.todoId));
+    if (todo) {
+      try {
+        await updateTodo(todo.id, { ...todo, status: 'completed' });
+        fetchTodos();
+        toast.success('Marked complete!');
+      } catch {
+        toast.error('Failed to update');
+      }
+    }
+    clearCurrent();
+  };
+
+  const handleReminderSnooze = () => {
+    snoozeCurrent(5);
+    toast('Snoozed for 5 minutes', { icon: '⏰' });
+  };
+
   const completedCount = todos.filter((t) => t.status === 'completed').length;
   const pendingCount = todos.filter((t) => t.status !== 'completed').length;
   const highPriorityCount = todos.filter((t) => t.priority === 'high' && t.status !== 'completed').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-950 p-4 sm:p-6">
-      {/* Top bar */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -85,7 +107,6 @@ function Dashboard() {
       </motion.div>
 
       <div className="max-w-5xl mx-auto">
-        {/* Stats cards */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -115,7 +136,6 @@ function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Add Todo button */}
         <button
           onClick={openAddModal}
           className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium px-4 py-2.5 rounded-lg hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition mb-6"
@@ -124,7 +144,6 @@ function Dashboard() {
           Add Todo
         </button>
 
-        {/* Todo list */}
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -166,6 +185,13 @@ function Dashboard() {
         onClose={() => setIsModalOpen(false)}
         onTodoAdded={fetchTodos}
         editingTodo={editingTodo}
+      />
+
+      <ReminderPopup
+        reminder={activeReminder}
+        onDone={handleReminderDone}
+        onSnooze={handleReminderSnooze}
+        onDismiss={dismissCurrent}
       />
     </div>
   );

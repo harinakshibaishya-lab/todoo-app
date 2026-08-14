@@ -2,27 +2,20 @@ import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createTodo, updateTodo } from '../services/todoService';
+import { saveReminder, removeReminder, getReminder } from '../utils/reminderStorage';
 
 function AddTodoModal({ isOpen, onClose, onTodoAdded, editingTodo }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState('medium');
-  const [dueDate, setDueDate] = useState('');
+  const [title, setTitle] = useState(editingTodo?.title || '');
+  const [description, setDescription] = useState(editingTodo?.description || '');
+  const [priority, setPriority] = useState(editingTodo?.priority || 'medium');
+  const [dueDate, setDueDate] = useState(editingTodo?.due_date ? editingTodo.due_date.split('T')[0] : '');
   const [loading, setLoading] = useState(false);
 
-  useState(() => {
-    if (editingTodo) {
-      setTitle(editingTodo.title || '');
-      setDescription(editingTodo.description || '');
-      setPriority(editingTodo.priority || 'medium');
-      setDueDate(editingTodo.due_date ? editingTodo.due_date.split('T')[0] : '');
-    } else {
-      setTitle('');
-      setDescription('');
-      setPriority('medium');
-      setDueDate('');
-    }
-  }, [editingTodo, isOpen]);
+  const existingReminder = editingTodo ? getReminder(editingTodo.id) : null;
+  const [reminderInterval, setReminderInterval] = useState(
+    existingReminder ? String(existingReminder.intervalMinutes) : 'none'
+  );
+  const [customMinutes, setCustomMinutes] = useState('');
 
   if (!isOpen) return null;
 
@@ -31,6 +24,8 @@ function AddTodoModal({ isOpen, onClose, onTodoAdded, editingTodo }) {
     setLoading(true);
 
     try {
+      let todoId = editingTodo?.id;
+
       if (editingTodo) {
         await updateTodo(editingTodo.id, {
           ...editingTodo,
@@ -41,9 +36,23 @@ function AddTodoModal({ isOpen, onClose, onTodoAdded, editingTodo }) {
         });
         toast.success('Todo updated!');
       } else {
-        await createTodo({ title, description, priority, due_date: dueDate || null });
+        const result = await createTodo({ title, description, priority, due_date: dueDate || null });
+        todoId = result.todoId;
         toast.success('Todo created!');
       }
+
+      if (reminderInterval === 'none') {
+        removeReminder(todoId);
+      } else {
+        const minutes = reminderInterval === 'custom' ? Number(customMinutes) : Number(reminderInterval);
+        if (minutes > 0) {
+          saveReminder(todoId, {
+            intervalMinutes: minutes,
+            nextTrigger: Date.now() + minutes * 60000,
+          });
+        }
+      }
+
       onTodoAdded();
       onClose();
     } catch (error) {
@@ -111,6 +120,32 @@ function AddTodoModal({ isOpen, onClose, onTodoAdded, editingTodo }) {
                 className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Reminder</label>
+            <select
+              value={reminderInterval}
+              onChange={(e) => setReminderInterval(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="none" className="bg-gray-900">No reminder</option>
+              <option value="2" className="bg-gray-900">Every 2 minutes</option>
+              <option value="5" className="bg-gray-900">Every 5 minutes</option>
+              <option value="10" className="bg-gray-900">Every 10 minutes</option>
+              <option value="custom" className="bg-gray-900">Custom</option>
+            </select>
+
+            {reminderInterval === 'custom' && (
+              <input
+                type="number"
+                min="1"
+                value={customMinutes}
+                onChange={(e) => setCustomMinutes(e.target.value)}
+                placeholder="Minutes"
+                className="w-full mt-2 bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            )}
           </div>
 
           <button
