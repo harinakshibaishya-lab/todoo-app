@@ -13,9 +13,11 @@ A production-style full-stack todo app with secure JWT authentication, built wit
 - ⚡ Real-time password strength indicator
 - 📊 Live stats dashboard (pending / completed / urgent)
 - ✔️ One-click complete/incomplete toggle
+- 🕷️ Custom task reminders with animated pop-up notifications (choose 2/5/10 min or custom interval)
 
 ## Tech Stack
 **Frontend:** React (Vite), Tailwind CSS, React Router DOM, Axios, Framer Motion, Lucide Icons, React Hot Toast
+**Reminders:** Custom React hook + localStorage-based scheduling engine
 **Backend:** Node.js, Express.js, JWT, bcrypt
 **Database:** MySQL
 
